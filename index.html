@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Lottery System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f6f9;
+            color: #333;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #2c3e50;
+        }
+
+        /* Input Styling */
+        input[type="file"], input[type="number"], button {
+            display: block;
+            margin: 20px auto;
+            padding: 12px 18px;
+            border: none;
+            border-radius: 8px;
+            background-color: #ffffff; /* White background for inputs and buttons */
+            font-size: 16px;
+            width: 80%;
+            max-width: 400px;
+            box-sizing: border-box;
+            color: #333;
+            transition: all 0.3s ease-in-out;
+        }
+
+        /* Focus effect */
+        input[type="number"]:focus, input[type="file"]:focus, button:focus {
+            outline: none;
+            border: 2px solid #1abc9c; /* Soft green for focus */
+            box-shadow: 0 0 8px rgba(26, 188, 156, 0.5); /* Soft glow effect on focus */
+        }
+
+        /* Button Styling */
+        button {
+            background-color: #4CAF50; /* Green background for buttons */
+            color: white;
+            font-size: 18px;
+            border-radius: 8px;
+            padding: 14px 18px;
+            margin-top: 20px;
+            width: 80%;
+            max-width: 400px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #1a37b8; /* Darker green when hovered */
+            transform: scale(1.05); /* Slight enlargement on hover */
+        }
+
+        button:disabled {
+            background-color: #ddd; /* Light grey when disabled */
+            cursor: not-allowed;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px auto;
+            background-color: #fff;
+        }
+
+        table th, table td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: left;
+        }
+
+        table th {
+            background-color: #4CAF50;
+            color: #fff;
+        }
+
+        #fullList, #selectedList {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Digital Lottery System</h1>
+    <h2>Upload Student Data</h2>
+    <input type="file" id="fileInput" accept=".xlsx, .xls">
+    
+    <h2>Full Student List</h2>
+    <div id="fullList">
+        <table id="fullTable">
+            <thead>
+                <tr>
+                    <th>Student ID</th>
+                    <th>Student Name</th>
+                    <th>Father's Name</th>
+                    <th>Mother's Name</th>
+                    <th>Phone Number</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Input field for selecting the number of winners -->
+    <h2>Select Number of Winners</h2>
+    <input type="number" id="winnersCount" placeholder="Enter number of winners" min="1" max="500">
+
+    <button id="runLottery" disabled>Run Lottery</button>
+
+    <h2>Lottery Winners</h2>
+    <div id="selectedList">
+        <table id="selectedTable">
+            <thead>
+                <tr>
+                    <th>Student ID</th>
+                    <th>Student Name</th>
+                    <th>Father's Name</th>
+                    <th>Mother's Name</th>
+                    <th>Phone Number</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Download PDF button placed at the bottom -->
+    <button id="downloadPdf" disabled>Download PDF</button>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- jsPDF Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- jsPDF autoTable Plugin -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.22/jspdf.plugin.autotable.min.js"></script>
+
+    <script>
+        const fileInput = document.getElementById("fileInput");
+        const runLottery = document.getElementById("runLottery");
+        const downloadPdf = document.getElementById("downloadPdf");
+        const winnersCountInput = document.getElementById("winnersCount");
+        const fullTableBody = document.querySelector("#fullTable tbody");
+        const selectedTableBody = document.querySelector("#selectedTable tbody");
+        let studentData = [];
+
+        // Load Excel file
+        fileInput.addEventListener("change", (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: "array" });
+                    const sheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    studentData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                    
+                    // Clear table and add new data
+                    fullTableBody.innerHTML = "";
+                    studentData.slice(1).forEach((row) => {
+                        const tr = document.createElement("tr");
+                        row.forEach((cell) => {
+                            const td = document.createElement("td");
+                            td.textContent = cell;
+                            tr.appendChild(td);
+                        });
+                        fullTableBody.appendChild(tr);
+                    });
+
+                    runLottery.disabled = false; // Enable the lottery button
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        });
+
+        // Enable "Run Lottery" button when winners count is entered
+        winnersCountInput.addEventListener("input", () => {
+            const winnersCount = winnersCountInput.value;
+            runLottery.disabled = !(winnersCount >= 1 && winnersCount <= 500);
+        });
+
+        // Run Lottery
+        runLottery.addEventListener("click", () => {
+            const winnersCount = parseInt(winnersCountInput.value);
+            if (isNaN(winnersCount) || winnersCount <= 0 || winnersCount > studentData.length - 1) {
+                alert("Please enter a valid number of winners.");
+                return;
+            }
+
+            const shuffled = studentData.slice(1).sort(() => 0.5 - Math.random());
+            const selected = shuffled.slice(0, winnersCount);
+
+            selectedTableBody.innerHTML = "";
+            selected.forEach((row) => {
+                const tr = document.createElement("tr");
+                row.forEach((cell) => {
+                    const td = document.createElement("td");
+                    td.textContent = cell;
+                    tr.appendChild(td);
+                });
+                selectedTableBody.appendChild(tr);
+            });
+
+            downloadPdf.disabled = false; // Enable the Download PDF button
+        });
+
+        // Download PDF
+        downloadPdf.addEventListener("click", () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Add title
+            doc.setFontSize(20);
+            doc.text("Lottery Winners", 14, 20);
+            
+            // Add table headers
+            doc.setFontSize(12);
+            const headers = ["Student ID", "Student Name", "Father's Name", "Mother's Name", "Phone Number"];
+            const data = [];
+            
+            selectedTableBody.querySelectorAll("tr").forEach((row) => {
+                const rowData = [];
+                row.querySelectorAll("td").forEach((cell) => {
+                    rowData.push(cell.textContent);
+                });
+                data.push(rowData);
+            });
+
+            // Add table data
+            doc.autoTable({
+                head: [headers],
+                body: data,
+                startY: 30,
+                theme: 'grid',
+                styles: { fontSize: 10 },
+            });
+
+            // Save the PDF
+            doc.save("lottery_winners.pdf");
+        });
+    </script>
+</body>
+</html>
